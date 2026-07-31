@@ -1,6 +1,6 @@
 {
   "name": "ghost-whatsapp-bridge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Serviço privado para conectar o Send Code Woo ao WhatsApp Web por QR Code.",
   "main": "server.js",

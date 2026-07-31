@@ -119,6 +119,38 @@ function normalizeNumber(value) {
   return /^\d{10,15}$/.test(digits) ? digits : '';
 }
 
+function numberCandidates(number) {
+  const candidates = [number];
+
+  // O WhatsApp ainda pode usar o JID brasileiro legado sem o nono dígito.
+  // Ex.: 55 + DDD + 9XXXXXXXX pode ser resolvido como 55 + DDD + XXXXXXXX.
+  if (/^55\d{11}$/.test(number) && number.charAt(4) === '9') {
+    candidates.push(number.slice(0, 4) + number.slice(5));
+  }
+
+  // Também tenta a forma com nono dígito quando o número chegou no formato legado.
+  if (/^55\d{10}$/.test(number)) {
+    candidates.push(number.slice(0, 4) + '9' + number.slice(4));
+  }
+
+  return [...new Set(candidates)];
+}
+
+async function resolveChatId(number) {
+  if (!client) return '';
+
+  for (const candidate of numberCandidates(number)) {
+    try {
+      const id = await client.getNumberId(candidate);
+      if (id && id._serialized) return id._serialized;
+    } catch (error) {
+      console.warn(`Falha ao resolver o número ${candidate}:`, error.message);
+    }
+  }
+
+  return '';
+}
+
 function sessionDirectory() {
   return path.join(AUTH_PATH, `session-${SESSION_ID}`);
 }
@@ -292,7 +324,14 @@ app.post('/v1/send', async (req, res) => {
         throw error;
       }
 
-      const message = await client.sendMessage(`${number}@c.us`, text, { linkPreview: false });
+      const chatId = await resolveChatId(number);
+      if (!chatId) {
+        const error = new Error('Número não encontrado ou não registrado no WhatsApp.');
+        error.statusCode = 422;
+        throw error;
+      }
+
+      const message = await client.sendMessage(chatId, text, { linkPreview: false });
       const messageId = message && message.id && message.id._serialized ? String(message.id._serialized) : '';
 
       sentRequests[requestId] = {
@@ -310,7 +349,10 @@ app.post('/v1/send', async (req, res) => {
   } catch (error) {
     const statusCode = Number(error.statusCode) || 500;
     console.error(`Falha no envio para final ${number.slice(-4)}:`, error.message);
-    res.status(statusCode).json({ ok: false, message: statusCode === 409 ? error.message : 'Não foi possível enviar a mensagem.' });
+    const publicMessage = [409, 422].includes(statusCode)
+      ? error.message
+      : 'Não foi possível enviar a mensagem. Consulte os logs do serviço.';
+    res.status(statusCode).json({ ok: false, message: publicMessage });
   }
 });
 

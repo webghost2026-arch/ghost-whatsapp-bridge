@@ -55,3 +55,10 @@ docker compose down
 ```
 
 Para apagar a sessão e gerar outro QR Code, use o botão **Desconectar** no WordPress.
+
+
+## Versão 1.0.1
+
+- Resolve o identificador real do destinatário com `getNumberId()` antes do envio.
+- Trata a diferença do nono dígito em números brasileiros.
+- Retorna uma mensagem clara quando o número não está registrado no WhatsApp.
