@@ -1,0 +1,17 @@
+services:
+  whatsapp:
+    build: .
+    container_name: ghost-whatsapp-bridge
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - whatsapp_data:/app/data
+    shm_size: "1gb"
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  whatsapp_data:
